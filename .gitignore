@@ -1,5 +1,33 @@
-node_modules
-dist
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# environment variables
 .env
-coverage
-.prisma
+.env.*
+!.env.example
+
+# prisma
+.prisma/
+
+# logs
+*.log
+
+# test coverage
+coverage/
+
+# temp files
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# docker override
+docker-compose.override.yml
