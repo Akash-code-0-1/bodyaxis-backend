@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+  TRAINER
+}
+
+enum FitnessGoal {
+  WEIGHT_LOSS
+  WEIGHT_GAIN
+  MAINTENANCE
+  MUSCLE_BUILDING
+}
+
+model User {
+  id             String      @id @default(uuid())
+  name           String
+  email          String      @unique
+  password       String
+  role           Role        @default(USER)
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  profile        Profile?
+  workouts       Workout[]
+  progressLogs   Progress[]
+}
+
+model Profile {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  age           Int?
+  gender        String?
+  height        Float?
+  weight        Float?
+  targetWeight  Float?
+  goal          FitnessGoal?
+  activityLevel String?
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Workout {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+  day         String?
+  duration    Int?
+  calories    Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Progress {
+  id        String    @id @default(uuid())
+  userId    String
+  weight    Float?
+  bmi       Float?
+  chest     Float?
+  waist     Float?
+  hips      Float?
+  note      String?
+  date      DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

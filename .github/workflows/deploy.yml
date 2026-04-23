@@ -1,0 +1,38 @@
+name: Deploy BodyAxis
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create production env file
+        run: |
+          cat <<EOF > .env.production
+          NODE_ENV=production
+          PORT=5000
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_ACCESS_EXPIRES_IN=7d
+          JWT_REFRESH_EXPIRES_IN=30d
+          EOF
+
+      - name: Build and deploy
+        run: |
+          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml up -d --build
+
+      - name: Remove dangling images
+        run: docker image prune -af
