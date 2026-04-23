@@ -1,33 +1,65 @@
-# dependencies
+# =========================
+# Dependencies
+# =========================
 node_modules/
 
-# build output
+# =========================
+# Build output
+# =========================
 dist/
+build/
 
-# environment variables
+# =========================
+# Environment variables (VERY IMPORTANT)
+# =========================
 .env
 .env.*
+.env.development
+.env.production
+
+# allow example file only
 !.env.example
 
-# prisma
+# =========================
+# Prisma
+# =========================
 .prisma/
 
-# logs
+# =========================
+# Logs
+# =========================
 *.log
+logs/
 
-# test coverage
+# =========================
+# Test coverage
+# =========================
 coverage/
 
-# temp files
+# =========================
+# Temporary files
+# =========================
 tmp/
 temp/
 
-# IDE
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editor
+# =========================
 .vscode/
 .idea/
 
-# OS
-.DS_Store
-
-# docker override
+# =========================
+# Docker (optional overrides)
+# =========================
 docker-compose.override.yml
+
+# =========================
+# Misc
+# =========================
+*.local
