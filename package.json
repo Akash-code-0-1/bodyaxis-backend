@@ -1,6 +1,7 @@
 {
   "name": "fitness-backend",
   "version": "1.0.0",
+  "description": "",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -9,11 +10,15 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
@@ -22,15 +27,19 @@
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
+    "nodemailer": "^8.0.6",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^22.19.17",
+    "@types/nodemailer": "^8.0.0",
     "eslint": "^9.39.4",
     "prettier": "^3.8.3",
     "prisma": "^6.19.3",
@@ -38,7 +47,6 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   },
-  "description": "",
   "keywords": [],
   "author": "",
   "license": "ISC"

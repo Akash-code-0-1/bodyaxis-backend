@@ -1,81 +1,156 @@
-import bcrypt from "bcrypt";
-import { prisma } from "../../config/prisma";
-import { AppError } from "../../core/errors/AppError";
-import { StatusCodes } from "http-status-codes";
+import bcrypt from 'bcryptjs';
+import { prisma } from '../../config/prisma';
+import { redis } from '../../config/redis';
+import { AppError } from '../../core/errors/AppError';
 import {
   createAccessToken,
   createRefreshToken,
-} from "../../core/utils/jwt";
+  TTokenPayload,
+  verifyRefreshToken,
+} from '../../core/utils/jwt';
+import {
+  TRefreshTokenPayload,
+  TSignInPayload,
+  TSignUpPayload,
+} from './auth.interface';
 
-const registerUser = async (payload: {
-  name: string;
-  email: string;
-  password: string;
-}) => {
+const USER_CACHE_PREFIX = 'user:';
+
+const sanitizeUser = <T extends { password?: string }>(user: T) => {
+  const { password, ...safeUser } = user;
+  return safeUser;
+};
+
+const invalidateUserCache = async (userId: string, email: string) => {
+  await redis.del(
+    `${USER_CACHE_PREFIX}${userId}`,
+    `${USER_CACHE_PREFIX}email:${email}`,
+  );
+};
+
+const signUp = async (payload: TSignUpPayload) => {
   const existingUser = await prisma.user.findUnique({
-    where: { email: payload.email },
+    where: {
+      email: payload.email,
+    },
   });
 
   if (existingUser) {
-    throw new AppError(StatusCodes.CONFLICT, "User already exists");
+    throw new AppError(409, 'Email already exists');
   }
 
-  const hashedPassword = await bcrypt.hash(payload.password, 10);
+  const hashedPassword = await bcrypt.hash(payload.password, 12);
 
   const user = await prisma.user.create({
     data: {
-      name: payload.name,
+      fullName: payload.fullName,
       email: payload.email,
       password: hashedPassword,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
+      dateOfBirth: payload.dateOfBirth ? new Date(payload.dateOfBirth) : null,
+      gender: payload.gender,
     },
   });
 
-  return user;
+  await invalidateUserCache(user.id, user.email);
+
+  const tokenPayload: TTokenPayload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  return {
+    accessToken: createAccessToken(tokenPayload),
+    refreshToken: createRefreshToken(tokenPayload),
+    user: sanitizeUser(user),
+  };
 };
 
-const loginUser = async (payload: { email: string; password: string }) => {
+const signIn = async (payload: TSignInPayload) => {
   const user = await prisma.user.findUnique({
-    where: { email: payload.email },
+    where: {
+      email: payload.email,
+    },
   });
 
   if (!user) {
-    throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid credentials");
+    throw new AppError(401, 'Invalid credentials');
+  }
+
+  if (user.status !== 'ACTIVE') {
+    throw new AppError(403, 'Your account is not active');
   }
 
   const isPasswordMatched = await bcrypt.compare(payload.password, user.password);
 
   if (!isPasswordMatched) {
-    throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid credentials");
+    throw new AppError(401, 'Invalid credentials');
   }
 
-  const jwtPayload = {
+  const updatedUser = await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      lastLoginAt: new Date(),
+    },
+  });
+
+  await invalidateUserCache(updatedUser.id, updatedUser.email);
+
+  const tokenPayload: TTokenPayload = {
+    userId: updatedUser.id,
+    email: updatedUser.email,
+    role: updatedUser.role,
+  };
+
+  return {
+    accessToken: createAccessToken(tokenPayload),
+    refreshToken: createRefreshToken(tokenPayload),
+    user: sanitizeUser(updatedUser),
+  };
+};
+
+const refreshToken = async (payload: TRefreshTokenPayload) => {
+  let decoded: any;
+
+  try {
+    decoded = verifyRefreshToken(payload.refreshToken);
+  } catch {
+    throw new AppError(401, 'Invalid or expired refresh token');
+  }
+
+  if (!decoded?.userId) {
+    throw new AppError(401, 'Invalid refresh token');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: decoded.userId,
+    },
+  });
+
+  if (!user) {
+    throw new AppError(401, 'User not found');
+  }
+
+  if (user.status !== 'ACTIVE') {
+    throw new AppError(403, 'Your account is not active');
+  }
+
+  const tokenPayload: TTokenPayload = {
     userId: user.id,
+    email: user.email,
     role: user.role,
   };
 
-  const accessToken = createAccessToken(jwtPayload);
-  const refreshToken = createRefreshToken(jwtPayload);
-
   return {
-    accessToken,
-    refreshToken,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    },
+    accessToken: createAccessToken(tokenPayload),
   };
 };
 
 export const authService = {
-  registerUser,
-  loginUser,
+  signUp,
+  signIn,
+  refreshToken,
 };

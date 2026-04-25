@@ -7,72 +7,213 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  USER
-  TRAINER
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
-enum FitnessGoal {
-  WEIGHT_LOSS
-  WEIGHT_GAIN
-  MAINTENANCE
-  MUSCLE_BUILDING
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
 }
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
 
 model User {
-  id             String      @id @default(uuid())
-  name           String
-  email          String      @unique
-  password       String
-  role           Role        @default(USER)
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id           String     @id @default(uuid())
+  fullName     String
+  email        String     @unique
+  password     String
+  dateOfBirth  DateTime?
+  gender       Gender?
+  role         UserRole   @default(USER)
+  status       UserStatus @default(ACTIVE)
 
-  profile        Profile?
-  workouts       Workout[]
-  progressLogs   Progress[]
+  lastLoginAt  DateTime?
+  lastUpdated  DateTime   @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  subscriptions UserSubscription[]
+  payments      PaymentTransaction[]
+
+  @@index([email])
+  @@map("users")
 }
 
-model Profile {
-  id            String        @id @default(uuid())
-  userId        String        @unique
-  age           Int?
-  gender        String?
-  height        Float?
-  weight        Float?
-  targetWeight  Float?
-  goal          FitnessGoal?
-  activityLevel String?
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }
 
-model Workout {
-  id          String    @id @default(uuid())
-  userId      String
-  title       String
-  description String?
-  day         String?
-  duration    Int?
-  calories    Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
 }
 
-model Progress {
-  id        String    @id @default(uuid())
-  userId    String
-  weight    Float?
-  bmi       Float?
-  chest     Float?
-  waist     Float?
-  hips      Float?
-  note      String?
-  date      DateTime  @default(now())
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum PaymentMethod {
+  APPLE_PAY
+  GOOGLE_PAY
+  PAYPAL
+  CARD
+}
+
+model SubscriptionPlan {
+  id              String       @id @default(uuid())
+  name            String
+  description     String?
+  billingCycle    BillingCycle
+  price           Decimal      @db.Decimal(10, 2)
+  currency        String       @default("USD")
+  discountPercent Int          @default(0)
+  features        Json
+  isActive        Boolean      @default(true)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  lastUpdated     DateTime     @updatedAt
+
+  subscriptions   UserSubscription[]
+  transactions PaymentTransaction[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id              String             @id @default(uuid())
+  userId          String
+  planId          String
+  status          SubscriptionStatus @default(ACTIVE)
+  startedAt       DateTime           @default(now())
+  expiresAt       DateTime
+  canceledAt      DateTime?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  lastUpdated     DateTime           @updatedAt
+
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payments        PaymentTransaction[]
+
+  @@index([userId])
+  @@index([planId])
+  @@map("user_subscriptions")
+}
+
+model PaymentTransaction {
+  id              String            @id @default(uuid())
+  userId          String
+  subscriptionId  String?
+  planId          String
+
+  transactionId   String            @unique
+  amount          Decimal           @db.Decimal(10, 2)
+  currency        String            @default("USD")
+  paymentMethod   PaymentMethod
+  status          PaymentStatus     @default(PAID)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  lastUpdated     DateTime          @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan  @relation(fields: [planId], references: [id])
+  subscription    UserSubscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@map("payment_transactions")
+}
+
+
+model Exercise {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  targetArea    String?
+  targetRegions String[]
+  userCases     String[]
+  benefit       String?
+  phase         String?
+  equipment     String[]
+  reps          String?
+  avoidIf       String?
+  coachingCue   String?
+  regression    String?
+  progression   String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastUpdated   DateTime @updatedAt
+
+  protocolItems ProtocolExercise[]
+
+  @@map("exercises")
+}
+
+model Protocol {
+  id              String   @id @default(uuid())
+  protocolNumber  Int?
+  name            String
+  targetArea      String
+  userCase        String
+  durationMinutes Int
+  totalTime       String?
+  equipment       String[]
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastUpdated     DateTime @updatedAt
+
+  exercises       ProtocolExercise[]
+
+  @@index([targetArea])
+  @@index([userCase])
+  @@index([durationMinutes])
+  @@index([isActive])
+  @@index([targetArea, userCase, durationMinutes, isActive])
+
+  @@map("protocols")
+}
+
+model ProtocolExercise {
+  id          String   @id @default(uuid())
+  protocolId String
+  exerciseId String?
+
+  phase       String
+  order       Int
+  name        String
+  setsReps    String?
+  equipment   String[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastUpdated DateTime @updatedAt
+
+  protocol    Protocol  @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  exercise    Exercise? @relation(fields: [exerciseId], references: [id])
+
+  @@index([protocolId])
+  @@index([exerciseId])
+  @@index([phase])
+  @@index([protocolId, phase, order])
+
+  @@map("protocol_exercises")
 }

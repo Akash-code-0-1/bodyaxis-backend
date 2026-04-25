@@ -1,32 +1,43 @@
-import { Request, Response } from "express";
-import { StatusCodes } from "http-status-codes";
-import { authService } from "./auth.service";
-import { catchAsync } from "../../core/utils/catchAsync";
-import { sendResponse } from "../../core/utils/sendResponse";
+import { Request, Response } from 'express';
+import { catchAsync } from '../../core/utils/catchAsync';
+import { sendResponse } from '../../core/utils/sendResponse';
+import { authService } from './auth.service';
 
-const register = catchAsync(async (req: Request, res: Response) => {
-  const result = await authService.registerUser(req.body);
+const signUp = catchAsync(async (req: Request, res: Response) => {
+  const result = await authService.signUp(req.body);
 
   sendResponse(res, {
+    statusCode: 201,
     success: true,
-    statusCode: StatusCodes.CREATED,
-    message: "User registered successfully",
+    message: 'Account created successfully',
     data: result,
   });
 });
 
-const login = catchAsync(async (req: Request, res: Response) => {
-  const result = await authService.loginUser(req.body);
+const signIn = catchAsync(async (req: Request, res: Response) => {
+  const result = await authService.signIn(req.body);
 
   sendResponse(res, {
+    statusCode: 200,
     success: true,
-    statusCode: StatusCodes.OK,
-    message: "Login successful",
+    message: 'Login successful',
+    data: result,
+  });
+});
+
+const refreshToken = catchAsync(async (req: Request, res: Response) => {
+  const result = await authService.refreshToken(req.body);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Access token generated successfully',
     data: result,
   });
 });
 
 export const authController = {
-  register,
-  login,
+  signUp,
+  signIn,
+  refreshToken,
 };

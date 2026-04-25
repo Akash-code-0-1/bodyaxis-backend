@@ -1,31 +1,62 @@
-import { PrismaClient, Role } from "@prisma/client";
-import bcrypt from "bcrypt";
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const password = await bcrypt.hash("admin123456", 10);
-
-  await prisma.user.upsert({
-    where: { email: "admin@fitness.com" },
+const main = async () => {
+  await prisma.subscriptionPlan.upsert({
+    where: {
+      id: '11111111-1111-1111-1111-111111111111',
+    },
     update: {},
     create: {
-      name: "Super Admin",
-      email: "admin@fitness.com",
-      password,
-      role: Role.ADMIN,
+      id: '11111111-1111-1111-1111-111111111111',
+      name: 'Axis Premium Monthly',
+      description:
+        'One plan. Unlimited performance. Unlock every protocol in our library.',
+      billingCycle: 'MONTHLY',
+      price: 29.99,
+      currency: 'USD',
+      discountPercent: 0,
+      features: [
+        'Unlimited Protocol Access',
+        'Advanced Biomechanical Data',
+        'Elite Coaching Insights',
+        'Cross-Device Sync',
+      ],
     },
   });
 
-  console.log("Seed completed");
-}
+  await prisma.subscriptionPlan.upsert({
+    where: {
+      id: '22222222-2222-2222-2222-222222222222',
+    },
+    update: {},
+    create: {
+      id: '22222222-2222-2222-2222-222222222222',
+      name: 'Axis Premium Annual',
+      description:
+        'One plan. Unlimited performance. Unlock every protocol in our library.',
+      billingCycle: 'YEARLY',
+      price: 299.99,
+      currency: 'USD',
+      discountPercent: 17,
+      features: [
+        'Unlimited Protocol Access',
+        'Advanced Biomechanical Data',
+        'Elite Coaching Insights',
+        'Cross-Device Sync',
+      ],
+    },
+  });
+};
 
 main()
   .then(async () => {
+    console.log('✅ Subscription plans seeded');
     await prisma.$disconnect();
   })
-  .catch(async (e) => {
-    console.error(e);
+  .catch(async error => {
+    console.error(error);
     await prisma.$disconnect();
     process.exit(1);
   });
