@@ -4,7 +4,6 @@ import { AppError } from '../errors/AppError';
 
 export type TAuthUser = {
   userId: string;
-  email: string;
   role: string;
 };
 
@@ -42,7 +41,10 @@ export const auth =
         throw new AppError(403, 'Forbidden');
       }
 
-      req.user = decoded;
+      req.user = {
+        userId: decoded.userId,
+        role: decoded.role,
+      };
 
       next();
     } catch (error) {

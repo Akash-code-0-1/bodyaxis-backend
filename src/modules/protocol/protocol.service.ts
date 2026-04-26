@@ -1,28 +1,39 @@
-import { Prisma } from '@prisma/client';
-import { prisma } from '../../config/prisma';
-import { redis } from '../../config/redis';
-import { AppError } from '../../core/errors/AppError';
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../config/prisma";
+import { redis } from "../../config/redis";
+import { AppError } from "../../core/errors/AppError";
 import {
   TProtocolQuery,
   TRecommendProtocolPayload,
-} from './protocol.interface';
+} from "./protocol.interface";
+
+type TPaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPage: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+type TProtocolListResponse = {
+  meta: TPaginationMeta;
+  data: unknown[];
+};
 
 const CACHE_TTL = 300;
 const MAX_LIMIT = 50;
 const RECOMMENDATION_CANDIDATE_LIMIT = 250;
 
-const PROTOCOL_CACHE_PREFIX = 'protocol:';
-const PROTOCOL_LIST_CACHE_PREFIX = 'protocol:list:';
-const PROTOCOL_RECOMMEND_CACHE_PREFIX = 'protocol:recommend:';
+const PROTOCOL_CACHE_PREFIX = "protocol:";
+const PROTOCOL_LIST_CACHE_PREFIX = "protocol:list:";
+const PROTOCOL_RECOMMEND_CACHE_PREFIX = "protocol:recommend:";
 
 const normalize = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
+  value.toLowerCase().trim().replace(/\s+/g, " ");
 
 const setCache = async (key: string, value: unknown, ttl = CACHE_TTL) => {
-  await redis.set(key, JSON.stringify(value), 'EX', ttl);
+  await redis.set(key, JSON.stringify(value), "EX", ttl);
 };
 
 const getCache = async <T>(key: string): Promise<T | null> => {
@@ -31,7 +42,7 @@ const getCache = async <T>(key: string): Promise<T | null> => {
 };
 
 const makeCacheKey = (prefix: string, payload: unknown) => {
-  return `${prefix}${Buffer.from(JSON.stringify(payload)).toString('base64')}`;
+  return `${prefix}${Buffer.from(JSON.stringify(payload)).toString("base64")}`;
 };
 
 const getPagination = (query: TProtocolQuery) => {
@@ -62,26 +73,26 @@ const calculateScore = (
 
   const exactAreaMatch = selectedAreas.includes(protocolArea);
   const partialAreaMatch = selectedAreas.some(
-    area => protocolArea.includes(area) || area.includes(protocolArea),
+    (area) => protocolArea.includes(area) || area.includes(protocolArea),
   );
 
   if (exactAreaMatch) {
     score += 60;
-    reasons.push('Matches selected body area');
+    reasons.push("Matches selected body area");
   } else if (partialAreaMatch) {
     score += 35;
-    reasons.push('Closely matches selected body area');
+    reasons.push("Closely matches selected body area");
   }
 
   if (protocolUserCase === selectedCase) {
     score += 45;
-    reasons.push('Matches selected condition');
+    reasons.push("Matches selected condition");
   } else if (
     protocolUserCase.includes(selectedCase) ||
     selectedCase.includes(protocolUserCase)
   ) {
     score += 25;
-    reasons.push('Closely matches selected condition');
+    reasons.push("Closely matches selected condition");
   }
 
   if (payload.durationMinutes) {
@@ -91,10 +102,10 @@ const calculateScore = (
 
     if (durationDiff === 0) {
       score += 35;
-      reasons.push('Matches preferred duration');
+      reasons.push("Matches preferred duration");
     } else if (durationDiff <= 15) {
       score += 15;
-      reasons.push('Close to preferred duration');
+      reasons.push("Close to preferred duration");
     }
   }
 
@@ -108,19 +119,21 @@ const calculateScore = (
   };
 };
 
-const getProtocols = async (query: TProtocolQuery) => {
+const getProtocols = async (
+  query: TProtocolQuery,
+): Promise<TProtocolListResponse> => {
   const { page, limit, skip } = getPagination(query);
 
   const cacheKey = makeCacheKey(PROTOCOL_LIST_CACHE_PREFIX, {
     page,
     limit,
-    search: query.search || '',
-    targetArea: query.targetArea || '',
-    userCase: query.userCase || '',
-    durationMinutes: query.durationMinutes || '',
+    search: query.search || "",
+    targetArea: query.targetArea || "",
+    userCase: query.userCase || "",
+    durationMinutes: query.durationMinutes || "",
   });
 
-  const cached = await getCache(cacheKey);
+  const cached = await getCache<TProtocolListResponse>(cacheKey);
   if (cached) return cached;
 
   const where: Prisma.ProtocolWhereInput = {
@@ -128,13 +141,13 @@ const getProtocols = async (query: TProtocolQuery) => {
     ...(query.targetArea && {
       targetArea: {
         contains: query.targetArea,
-        mode: 'insensitive',
+        mode: "insensitive",
       },
     }),
     ...(query.userCase && {
       userCase: {
         contains: query.userCase,
-        mode: 'insensitive',
+        mode: "insensitive",
       },
     }),
     ...(query.durationMinutes && {
@@ -145,19 +158,19 @@ const getProtocols = async (query: TProtocolQuery) => {
         {
           name: {
             contains: query.search,
-            mode: 'insensitive',
+            mode: "insensitive",
           },
         },
         {
           targetArea: {
             contains: query.search,
-            mode: 'insensitive',
+            mode: "insensitive",
           },
         },
         {
           userCase: {
             contains: query.search,
-            mode: 'insensitive',
+            mode: "insensitive",
           },
         },
       ],
@@ -187,10 +200,10 @@ const getProtocols = async (query: TProtocolQuery) => {
       },
       orderBy: [
         {
-          durationMinutes: 'asc',
+          durationMinutes: "asc",
         },
         {
-          protocolNumber: 'asc',
+          protocolNumber: "asc",
         },
       ],
     }),
@@ -230,13 +243,13 @@ const recommendProtocols = async (payload: TRecommendProtocolPayload) => {
         payload.durationMinutes,
         payload.durationMinutes - 15,
         payload.durationMinutes + 15,
-      ].filter(value => value > 0)
+      ].filter((value) => value > 0)
     : undefined;
 
   const where: Prisma.ProtocolWhereInput = {
     isActive: true,
     OR: [
-      ...payload.targetAreas.map(area => ({
+      ...payload.targetAreas.map((area) => ({
         targetArea: {
           contains: area,
           mode: Prisma.QueryMode.insensitive,
@@ -299,26 +312,26 @@ const recommendProtocols = async (payload: TRecommendProtocolPayload) => {
         },
         orderBy: [
           {
-            phase: 'asc',
+            phase: "asc",
           },
           {
-            order: 'asc',
+            order: "asc",
           },
         ],
       },
     },
     orderBy: [
       {
-        durationMinutes: 'asc',
+        durationMinutes: "asc",
       },
       {
-        protocolNumber: 'asc',
+        protocolNumber: "asc",
       },
     ],
   });
 
   const scored = candidates
-    .map(protocol => {
+    .map((protocol) => {
       const { score, reasons } = calculateScore(protocol, payload);
 
       return {
@@ -327,7 +340,7 @@ const recommendProtocols = async (payload: TRecommendProtocolPayload) => {
         matchReasons: reasons,
       };
     })
-    .filter(protocol => protocol.score > 0)
+    .filter((protocol) => protocol.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
@@ -391,10 +404,10 @@ const getProtocolById = async (id: string) => {
         },
         orderBy: [
           {
-            phase: 'asc',
+            phase: "asc",
           },
           {
-            order: 'asc',
+            order: "asc",
           },
         ],
       },
@@ -402,7 +415,7 @@ const getProtocolById = async (id: string) => {
   });
 
   if (!protocol) {
-    throw new AppError(404, 'Protocol not found');
+    throw new AppError(404, "Protocol not found");
   }
 
   const groupedExercises = protocol.exercises.reduce(
