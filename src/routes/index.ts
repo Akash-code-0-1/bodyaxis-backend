@@ -5,6 +5,12 @@ import { protocolRoutes } from '../modules/protocol/protocol.routes';
 
 const router = express.Router();
 
+// Health Check Route
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running smoothly' });
+});
+
+// Existing routes
 router.use('/auth', authRoutes);
 router.use('/subscriptions', subscriptionRoutes);
 router.use('/protocols', protocolRoutes);
